@@ -158,7 +158,6 @@ def _render_page_config(
         {
             "command": get_pair_command(),
             "templates": asdict(load_prompt_templates()),
-            "hostEnabled": mode == "edit",
         }
     )
     mount_config = """{{
