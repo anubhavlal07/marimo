@@ -29,8 +29,7 @@ const records = {
   "run-cells-request.json": Protocol.RunRequest,
   "input-reply-request.json": Protocol.InputReplyRequest,
   "input-reply-response.json": Protocol.Input,
-  "interrupt-runtime-request.json": Protocol.InterruptRuntimeRequest,
-  "interrupt-runtime-response.json": Protocol.InterruptRuntimeResponse,
+  "interrupt-runtime-response.json": Protocol.Runtime,
 };
 
 describe("host protocol fixtures", () => {

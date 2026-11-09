@@ -451,35 +451,55 @@ requested.
 
 ### Interrupting a runtime
 
-Hosts that offer execution MUST support interruption of active runtime work,
-including callbacks and debugger commands that have no run or execution record.
-Clients target the runtime they observed, rather than enumerating runs.
+Hosts that offer execution MUST support `runtime.interrupt`. It requests that
+active work stop, including work with no run or execution record, and ends
+queued runs. Clients do not need to enumerate runs or supply a runtime id.
 
 ```http
 POST /notebooks/{notebook_id}/runtime/interrupt
 Idempotency-Key: interrupt-1
-Content-Type: application/json
-
-{ "runtime_id": "rt-123" }
 ```
 
-The host MUST check that the identified runtime is still current and `running`
-before signalling it. A different current runtime or one that is not `running`
-is a `conflict`; an absent runtime is `no-runtime`. An idle running runtime
-accepts the request as a no-op and MUST NOT arm an interrupt for future work.
+This request has no body. An absent runtime is `no-runtime`; a runtime that is
+not `running` is a `conflict`. An idle running runtime accepts the request as a
+no-op and MUST NOT arm an interrupt for future work.
 
-Interruption requests that active work stop while keeping the runtime alive.
-It does not roll back work already performed. It MAY end unfinished executions
-within the active run, but MUST NOT cancel independently queued runs. Pending
-inputs belonging to interrupted work MUST be cancelled. Work without a run
-record need not acquire one to be interrupted.
+Interruption keeps the runtime alive and does not roll back work already
+performed. The host MUST remove queued runs from the queue and complete them
+`interrupted` without executing. Pending inputs belonging to interrupted work
+MUST be cancelled. Work without a run record need not acquire one to be
+interrupted.
 
-The host answers `202` with `{ "runtime_id": "rt-123" }`. This acknowledges
-the request, not that active work has stopped. Runs and executions MUST report
+The host answers `202` with the current `Runtime`. This acknowledges the
+request, not that active work has stopped. Runs and executions MUST report
 their actual outcomes once they settle; acceptance alone MUST NOT mark them
 `interrupted`. Within the retry window, repeating the same request MUST return
-the original acknowledgement without signalling again, including after new
+the original acknowledgement without interrupting again, including after new
 work has started or the runtime has been replaced.
+
+### Cancelling a run
+
+Hosts that list `runtime.run` MUST support `runtime.cancel`. Clients target one
+run without affecting other runs or stopping the runtime.
+
+```http
+DELETE /notebooks/{notebook_id}/runtime/runs/{run_id}
+Idempotency-Key: cancel-1
+```
+
+This request has no body. A queued run MUST be removed from the queue and
+complete `interrupted` without executing. For a running run, the host MUST
+interrupt only if that run is still active, and its remaining executions MUST
+end `interrupted`. If the target finishes before cancellation takes effect,
+the host MUST NOT interrupt a successor. Pending inputs belonging to cancelled
+work MUST be cancelled. Other runs MUST remain untouched.
+
+A completed run receives `conflict`, so a client attempting cancellation can
+distinguish work that already finished. An accepted request receives `202`
+with the `Run`; this acknowledges cancellation, not completion. The notebook
+stream reports the run and execution outcomes once they settle. Retrying an
+accepted request follows the protocol's idempotency rules, including after
+the run completes.
 
 ### Answering input
 
@@ -504,7 +524,7 @@ Content-Type: application/json
 
 The runtime receives the text in `value` exactly as submitted, including an
 empty string when the answer is empty. Clients that want to stop the work
-waiting for input can interrupt its runtime.
+waiting for input can cancel its run or interrupt its runtime.
 
 The host MUST accept at most one reply to each input and reject replies once
 it is cancelled. Before acknowledging a reply, the host MUST arrange delivery

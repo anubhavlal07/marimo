@@ -252,11 +252,15 @@ export class PyodideBridge implements RunRequests, EditRequests {
         }
       },
       call: (call) => {
+        // The worker cannot take a call while a cell runs, so the interrupt
+        // is raised on the shared buffer first and the call follows.
         if (call.operation === "runtime.interrupt") {
-          // The worker cannot take the call while a cell runs; raise the
-          // interrupt there first. A queued run is cancelled by the worker,
-          // unless it starts before the call arrives: then it is raised
-          // when the run is reported running.
+          if (this.anyRunning()) {
+            void this.sendInterrupt();
+          }
+        } else if (call.operation === "runtime.cancel") {
+          // A queued run is cancelled by the worker, unless it starts before
+          // the call arrives. Then it is raised once the run reports running.
           if (this.isRunning(call.params.run_id)) {
             void this.sendInterrupt();
           } else {
@@ -287,6 +291,20 @@ export class PyodideBridge implements RunRequests, EditRequests {
     } else if (run.status === "completed") {
       this.pendingInterrupts.delete(run.id);
     }
+  }
+
+  /** Whether the host reports any run as running, so a cell is executing. */
+  private anyRunning(): boolean {
+    const replica = store.get(activeNotebookReplicaAtom);
+    if (replica === null) {
+      return false;
+    }
+    for (const run of store.get(replica.executionsAtom).runs.values()) {
+      if (run.status === "running") {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Whether the host reports `runId` as running, so a cell is executing. */

@@ -33,8 +33,7 @@ MODELS = {
     "run-cells-request.json": "RunRequest",
     "input-reply-request.json": "InputReplyRequest",
     "input-reply-response.json": "Input",
-    "interrupt-runtime-request.json": "InterruptRuntimeRequest",
-    "interrupt-runtime-response.json": "InterruptRuntimeResponse",
+    "interrupt-runtime-response.json": "Runtime",
 }
 
 

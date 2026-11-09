@@ -99,7 +99,7 @@ describe("NotebookClient", () => {
       "http://localhost/api/marimo/v1/notebooks/n1/?session_id=s1",
     );
     await notebook.delete();
-    await notebook.interrupt({ runtime_id: "rt-1" });
+    await notebook.interrupt();
     expect(fetch.mock.calls.map(([url]) => String(url))).toMatchInlineSnapshot(`
       [
         "http://localhost/api/marimo/v1/notebooks/n1?session_id=s1",
@@ -119,35 +119,56 @@ describe("NotebookClient", () => {
     );
   });
 
-  it("requires a nonempty runtime id before sending an interrupt", async () => {
+  it("requires a nonempty run id before sending a cancellation", async () => {
     const { notebook, fetch } = connect(() => json(202, {}));
-    await expect(notebook.interrupt({ runtime_id: "" })).rejects.toBeInstanceOf(
-      z.ZodError,
+    await expect(notebook.cancelRun("")).rejects.toThrow(
+      "needs a valid run_id",
     );
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("interrupts the observed runtime and returns an acknowledgement", async () => {
-    const body = readFixture(
-      "interrupt-runtime-request.json",
-    ) as Protocol.InterruptRuntimeRequest;
+  it("interrupts without a body and returns the runtime acknowledgement", async () => {
     const receipt = readFixture("interrupt-runtime-response.json");
     const { notebook, sent } = connect(() => json(202, receipt));
 
-    expect(
-      await notebook.interrupt(body, { idempotencyKey: "interrupt-1" }),
-    ).toEqual({
-      ok: true,
-      status: 202,
-      data: receipt,
-    });
+    expect(await notebook.interrupt({ idempotencyKey: "interrupt-1" })).toEqual(
+      {
+        ok: true,
+        status: 202,
+        data: receipt,
+      },
+    );
     const request = sent();
     expect(request.method).toBe("POST");
     expect(request.url).toBe(
       "http://127.0.0.1:2718/api/marimo/v1/notebooks/n1/runtime/interrupt",
     );
     expect(request.headers.get("Idempotency-Key")).toBe("interrupt-1");
-    expect(await request.json()).toEqual(body);
+    expect(request.body).toBeNull();
+  });
+
+  it("cancels a run by id and returns its record", async () => {
+    const run: Protocol.Run = {
+      id: "r/1",
+      notebook_id: "n1",
+      runtime_id: "rt-1",
+      cells: [],
+      status: "running",
+      started_at: "2026-10-01T09:20:01Z",
+      completed_at: null,
+      outcome: null,
+    };
+    const { notebook, sent } = connect(() => json(202, run));
+    expect(
+      await notebook.cancelRun(run.id, { idempotencyKey: "cancel-1" }),
+    ).toEqual({ ok: true, status: 202, data: run });
+    const request = sent();
+    expect(request.method).toBe("DELETE");
+    expect(request.url).toBe(
+      "http://127.0.0.1:2718/api/marimo/v1/notebooks/n1/runtime/runs/r%2F1",
+    );
+    expect(request.headers.get("Idempotency-Key")).toBe("cancel-1");
+    expect(request.body).toBeNull();
   });
 
   it("keeps its URL when a caller changes the copy it reads", async () => {
@@ -283,6 +304,7 @@ describe("NotebookClient", () => {
       "runtime.run": "run",
       "runtime.input": "input",
       "runtime.interrupt": "interrupt",
+      "runtime.cancel": "cancelRun",
     } as const).toExtend<Record<NotebookOperationId, keyof NotebookClient>>();
   });
 });
@@ -332,18 +354,16 @@ describe("NotebookClient.unstable_over", () => {
       status: 404,
     };
     const { notebook, send } = over(() => ({ status: 404, body: problem }));
-    expect(
-      await notebook.interrupt({ runtime_id: "rt-1" }, { idempotencyKey: "k" }),
-    ).toEqual({
+    expect(await notebook.cancelRun("r1", { idempotencyKey: "k" })).toEqual({
       ok: false,
       status: 404,
       problem,
     });
     expect(send).toHaveBeenCalledWith({
-      operation: "runtime.interrupt",
-      params: { notebook_id: "n1" },
+      operation: "runtime.cancel",
+      params: { notebook_id: "n1", run_id: "r1" },
       headers: { "idempotency-key": "k" },
-      body: { runtime_id: "rt-1" },
+      body: undefined,
     });
   });
 
@@ -383,7 +403,16 @@ describe("NotebookClient.unstable_over", () => {
     }>();
     expectTypeOf<
       unstable_NotebookCall<"runtime.interrupt">["body"]
-    >().toEqualTypeOf<Protocol.InterruptRuntimeRequestOutput>();
+    >().toEqualTypeOf<undefined>();
+    expectTypeOf<
+      unstable_NotebookCall<"runtime.cancel">["params"]
+    >().toEqualTypeOf<{
+      readonly notebook_id: string;
+      readonly run_id: string;
+    }>();
+    expectTypeOf<
+      unstable_NotebookCall<"runtime.cancel">["body"]
+    >().toEqualTypeOf<undefined>();
     expectTypeOf<unstable_NotebookCall<"notebook.save">["headers"]>().toExtend<{
       readonly "idempotency-key": string;
       readonly "if-match"?: string;

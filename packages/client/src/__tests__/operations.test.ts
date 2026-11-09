@@ -34,6 +34,7 @@ describe("operations", () => {
       | "runtime.run"
       | "runtime.input"
       | "runtime.interrupt"
+      | "runtime.cancel"
     >();
   });
 
@@ -66,6 +67,9 @@ describe("operations", () => {
     });
     expect(operations["runtime.interrupt"].path).toBe(
       "/notebooks/{notebook_id}/runtime/interrupt",
+    );
+    expect(operations["runtime.cancel"].path).toBe(
+      "/notebooks/{notebook_id}/runtime/runs/{run_id}",
     );
   });
 });

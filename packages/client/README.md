@@ -110,6 +110,19 @@ await notebook.execute({ code: "print('hi')" });
 On success, both return a `Run` in `result.data`. Follow the notebook stream
 for its progress and results.
 
+## Interrupt or cancel work
+
+`notebook.interrupt()` stops active runtime work, including work without a run
+record, and ends queued runs as interrupted. It takes no runtime or run id.
+An idle runtime accepts the request without affecting future work.
+
+`notebook.cancelRun(runId)` cancels one queued or running run and leaves other
+runs untouched. Cancelling a completed run returns a conflict problem.
+
+Both keep the runtime alive. Their successful results contain a `Runtime` and
+`Run`, respectively. These acknowledge the request; follow the notebook stream
+to observe completion.
+
 ## Follow changes
 
 Keep iterating after `ready` to follow changes. Streams reconnect and resume

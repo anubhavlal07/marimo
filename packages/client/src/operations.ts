@@ -149,14 +149,24 @@ export const operations = {
     responses: { 200: Protocol.Input },
     problems: [400, 401, 403, 404, 405, 409, 500, 501],
   },
-  /** Interrupt active work in the notebook's runtime. */
+  /** Interrupt the notebook's runtime. */
   "runtime.interrupt": {
     method: "POST",
     path: "/notebooks/{notebook_id}/runtime/interrupt",
     query: {},
     headers: { "Idempotency-Key": true },
-    body: Protocol.InterruptRuntimeRequest,
-    responses: { 202: Protocol.InterruptRuntimeResponse },
+    body: null,
+    responses: { 202: Protocol.Runtime },
+    problems: [400, 401, 403, 404, 405, 409, 500, 501],
+  },
+  /** Cancel a run. */
+  "runtime.cancel": {
+    method: "DELETE",
+    path: "/notebooks/{notebook_id}/runtime/runs/{run_id}",
+    query: {},
+    headers: { "Idempotency-Key": true },
+    body: null,
+    responses: { 202: Protocol.Run },
     problems: [400, 401, 403, 404, 405, 409, 500, 501],
   },
 } as const;

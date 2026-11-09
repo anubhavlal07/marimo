@@ -153,13 +153,20 @@ class NotebookOperations {
     });
   }
 
-  /** Interrupt active work in the runtime the client observed. */
+  /** Interrupt active work and end queued runs in the notebook's runtime. */
   public interrupt(
-    request: Protocol.InterruptRuntimeRequest,
     options?: MutationOptions,
-  ): Promise<Result<Protocol.InterruptRuntimeResponseOutput>> {
-    return this.#send("runtime.interrupt", {
-      body: request,
+  ): Promise<Result<Protocol.RuntimeOutput>> {
+    return this.#send("runtime.interrupt", { options });
+  }
+
+  /** Cancel one run without affecting other runs. */
+  public cancelRun(
+    runId: Protocol.RunId,
+    options?: MutationOptions,
+  ): Promise<Result<Protocol.RunOutput>> {
+    return this.#send("runtime.cancel", {
+      params: { run_id: runId },
       options,
     });
   }

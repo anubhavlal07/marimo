@@ -1336,24 +1336,6 @@ class InputMessage(Struct, frozen=True):
     ) = UNSET
 
 
-class InterruptRuntimeRequest(Struct, frozen=True):
-    runtime_id: Annotated[
-        RuntimeId,
-        Meta(
-            description="The expected current runtime. A different current runtime is a conflict."
-        ),
-    ]
-
-
-class InterruptRuntimeResponse(Struct, frozen=True):
-    runtime_id: Annotated[
-        RuntimeId,
-        Meta(
-            description="The runtime the interrupt request was accepted for."
-        ),
-    ]
-
-
 class Notebook(Struct, frozen=True):
     id: NotebookId
     name: Annotated[

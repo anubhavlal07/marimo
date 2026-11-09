@@ -1850,36 +1850,6 @@ export const InputReplyRequest = zod
 export type InputReplyRequest = zod.input<typeof InputReplyRequest>;
 export type InputReplyRequestOutput = zod.output<typeof InputReplyRequest>;
 
-export const InterruptRuntimeRequest = zod
-  .object({
-    runtime_id: RuntimeId.describe(
-      "The expected current runtime. A different current runtime is a conflict.",
-    ),
-  })
-  .describe("Interrupt active work in the runtime the client observed.");
-
-export type InterruptRuntimeRequest = zod.input<typeof InterruptRuntimeRequest>;
-export type InterruptRuntimeRequestOutput = zod.output<
-  typeof InterruptRuntimeRequest
->;
-
-export const InterruptRuntimeResponse = zod
-  .object({
-    runtime_id: RuntimeId.describe(
-      "The runtime the interrupt request was accepted for.",
-    ),
-  })
-  .describe(
-    "Acknowledges an interrupt request without claiming that active work has stopped.",
-  );
-
-export type InterruptRuntimeResponse = zod.input<
-  typeof InterruptRuntimeResponse
->;
-export type InterruptRuntimeResponseOutput = zod.output<
-  typeof InterruptRuntimeResponse
->;
-
 export const StartRuntimeRequest = zod.object({
   decisions: zod
     .record(zod.string(), zod.string())
