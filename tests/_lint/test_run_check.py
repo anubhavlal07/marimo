@@ -174,7 +174,7 @@ def __():
     def test_run_check_glob_respects_directory_boundaries(
         self, tmp_path: Path, pattern: str, expected: list[str]
     ):
-        """`*` stays within one directory; `**` matches zero or more."""
+        """`*` matches within one directory, and `**` matches zero or more."""
         for name in ["top.py", "sub/nested.py", "sub/deep/deeper.py"]:
             path = tmp_path / name
             path.parent.mkdir(parents=True, exist_ok=True)

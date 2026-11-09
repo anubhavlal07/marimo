@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import fnmatch
+import functools
 import os
 import re
 from pathlib import Path
@@ -56,26 +57,31 @@ def _get_root(pattern: str) -> str:
 
 
 def _match_parts(path: tuple[str, ...], pattern: tuple[str, ...]) -> bool:
-    """Match path components one at a time, like `pathlib` globbing.
+    """Return whether `path` matches `pattern`, one component at a time.
 
-    `*` and `?` never cross a directory separator, and `**` matches zero or
-    more whole directories.
+    `*` and `?` match within one component, and `**` matches zero or more
+    directories.
     """
-    if not pattern:
-        return not path
-    if pattern[0] == "**":
-        return any(
-            _match_parts(path[i:], pattern[1:]) for i in range(len(path) + 1)
+
+    # Cached so that repeated `**` components do not backtrack exponentially.
+    @functools.cache
+    def match(i: int, j: int) -> bool:
+        if j == len(pattern):
+            return i == len(path)
+        if pattern[j] == "**":
+            return any(match(k, j + 1) for k in range(i, len(path) + 1))
+        return (
+            i < len(path)
+            and fnmatch.fnmatch(path[i], pattern[j])
+            and match(i + 1, j + 1)
         )
-    return (
-        bool(path)
-        and fnmatch.fnmatch(path[0], pattern[0])
-        and _match_parts(path[1:], pattern[1:])
-    )
+
+    return match(0, 0)
 
 
 def _matches(path: Path, pattern: str) -> bool:
-    # `Path` drops a trailing separator, which restricts a glob to directories.
+    # A trailing separator limits a glob to directories, but `Path` removes it.
+    # Only files are matched here, so such a glob matches nothing.
     if pattern.endswith(("/", os.sep)):
         return False
     return _match_parts(path.parts, Path(pattern).parts)
