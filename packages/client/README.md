@@ -116,12 +116,24 @@ for its progress and results.
 record, and ends queued runs as interrupted. It takes no runtime or run id.
 An idle runtime accepts the request without affecting future work.
 
-`notebook.cancelRun(runId)` cancels one queued or running run and leaves other
+`notebook.cancel({ runId })` cancels one queued or running run and leaves other
 runs untouched. Cancelling a completed run returns a conflict problem.
 
 Both keep the runtime alive. Their successful results contain a `Runtime` and
 `Run`, respectively. These acknowledge the request; follow the notebook stream
 to observe completion.
+
+Execution parameters and request options are separate:
+
+```ts
+notebook.run({ cells: [{ id: cellId }] }, { signal, idempotencyKey });
+notebook.cancel({ runId }, { signal, idempotencyKey });
+notebook.interrupt({ signal, idempotencyKey });
+```
+
+Request options are optional. Use a fresh idempotency key for each operation
+and reuse it only when retrying that request. Aborting `signal` stops waiting
+for the request; cancelling execution on the host requires `cancel({ runId })`.
 
 ## Follow changes
 

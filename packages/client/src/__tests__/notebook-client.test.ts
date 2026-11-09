@@ -121,7 +121,7 @@ describe("NotebookClient", () => {
 
   it("requires a nonempty run id before sending a cancellation", async () => {
     const { notebook, fetch } = connect(() => json(202, {}));
-    await expect(notebook.cancelRun("")).rejects.toThrow(
+    await expect(notebook.cancel({ runId: "" })).rejects.toThrow(
       "needs a valid run_id",
     );
     expect(fetch).not.toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe("NotebookClient", () => {
     };
     const { notebook, sent } = connect(() => json(202, run));
     expect(
-      await notebook.cancelRun(run.id, { idempotencyKey: "cancel-1" }),
+      await notebook.cancel({ runId: run.id }, { idempotencyKey: "cancel-1" }),
     ).toEqual({ ok: true, status: 202, data: run });
     const request = sent();
     expect(request.method).toBe("DELETE");
@@ -304,7 +304,7 @@ describe("NotebookClient", () => {
       "runtime.run": "run",
       "runtime.input": "input",
       "runtime.interrupt": "interrupt",
-      "runtime.cancel": "cancelRun",
+      "runtime.cancel": "cancel",
     } as const).toExtend<Record<NotebookOperationId, keyof NotebookClient>>();
   });
 });
@@ -354,7 +354,9 @@ describe("NotebookClient.unstable_over", () => {
       status: 404,
     };
     const { notebook, send } = over(() => ({ status: 404, body: problem }));
-    expect(await notebook.cancelRun("r1", { idempotencyKey: "k" })).toEqual({
+    expect(
+      await notebook.cancel({ runId: "r1" }, { idempotencyKey: "k" }),
+    ).toEqual({
       ok: false,
       status: 404,
       problem,
