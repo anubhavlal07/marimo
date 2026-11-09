@@ -446,9 +446,40 @@ source are fixed when it is accepted, and the run's `cells` names them, so a
 client can tell which cells a queued run will reach before the runtime has
 planned their executions. Editing continues while runs are queued or running,
 and a result from source the document no longer has is outdated.
-Hosts MUST support interruption, and interrupting a run that has not started
-cancels it. Completion means the work has finished, including any interruption
-that was requested.
+Completion means the work has finished, including any interruption that was
+requested.
+
+### Interrupting a runtime
+
+Hosts that offer execution MUST support interruption of active runtime work,
+including callbacks and debugger commands that have no run or execution record.
+Clients target the runtime they observed, rather than enumerating runs.
+
+```http
+POST /notebooks/{notebook_id}/runtime/interrupt
+Idempotency-Key: interrupt-1
+Content-Type: application/json
+
+{ "runtime_id": "rt-123" }
+```
+
+The host MUST check that the identified runtime is still current and `running`
+before signalling it. A different current runtime or one that is not `running`
+is a `conflict`; an absent runtime is `no-runtime`. An idle running runtime
+accepts the request as a no-op and MUST NOT arm an interrupt for future work.
+
+Interruption requests that active work stop while keeping the runtime alive.
+It does not roll back work already performed. It MAY end unfinished executions
+within the active run, but MUST NOT cancel independently queued runs. Pending
+inputs belonging to interrupted work MUST be cancelled. Work without a run
+record need not acquire one to be interrupted.
+
+The host answers `202` with `{ "runtime_id": "rt-123" }`. This acknowledges
+the request, not that active work has stopped. Runs and executions MUST report
+their actual outcomes once they settle; acceptance alone MUST NOT mark them
+`interrupted`. Within the retry window, repeating the same request MUST return
+the original acknowledgement without signalling again, including after new
+work has started or the runtime has been replaced.
 
 ### Answering input
 
@@ -473,7 +504,7 @@ Content-Type: application/json
 
 The runtime receives the text in `value` exactly as submitted, including an
 empty string when the answer is empty. Clients that want to stop the work
-waiting for input can interrupt the owning run.
+waiting for input can interrupt its runtime.
 
 The host MUST accept at most one reply to each input and reject replies once
 it is cancelled. Before acknowledging a reply, the host MUST arrange delivery

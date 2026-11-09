@@ -34,6 +34,8 @@ MODELS = {
     "run-cells-request.json": protocol.RunRequest,
     "input-reply-request.json": protocol.InputReplyRequest,
     "input-reply-response.json": protocol.Input,
+    "interrupt-runtime-request.json": protocol.InterruptRuntimeRequest,
+    "interrupt-runtime-response.json": protocol.InterruptRuntimeResponse,
 }
 
 

@@ -523,10 +523,33 @@ async def test_runs_queue_behind_the_active_run_and_interrupt(host, scratch):
         )
         assert queued["id"] != run["id"]
         assert queued["status"] == "queued"
-        endpoint = path + "/runtime/runs/" + quote(run["id"], safe="")
-        accepted(await host.request("DELETE", endpoint), 202, "Run")
+        endpoint = path + "/runtime/interrupt"
+        interrupt_key = uuid4().hex
+        body = {"runtime_id": run["runtime_id"]}
+        receipt = accepted(
+            await host.request("POST", endpoint, key=interrupt_key, json=body),
+            202,
+            "InterruptRuntimeResponse",
+        )
+        assert receipt == body
         _, executions = await finish_run(watch, run, key, "interrupted")
         assert all(e["outcome"]["kind"] == "interrupted" for e in executions)
-        problem(await host.request("DELETE", endpoint), 409, "conflict")
         # The interruption releases the runtime for the queued run.
         await finish_run(watch, queued, queued_key, "succeeded")
+        assert (
+            accepted(
+                await host.request(
+                    "POST", endpoint, key=interrupt_key, json=body
+                ),
+                202,
+                "InterruptRuntimeResponse",
+            )
+            == receipt
+        )
+        problem(
+            await host.request(
+                "POST", endpoint, json={"runtime_id": "a-different-runtime"}
+            ),
+            409,
+            "conflict",
+        )

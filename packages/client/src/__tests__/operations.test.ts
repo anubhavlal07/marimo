@@ -65,7 +65,7 @@ describe("operations", () => {
       "If-Match": false,
     });
     expect(operations["runtime.interrupt"].path).toBe(
-      "/notebooks/{notebook_id}/runtime/runs/{run_id}",
+      "/notebooks/{notebook_id}/runtime/interrupt",
     );
   });
 });

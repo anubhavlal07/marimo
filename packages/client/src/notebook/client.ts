@@ -153,13 +153,13 @@ class NotebookOperations {
     });
   }
 
-  /** Interrupt a run. */
+  /** Interrupt active work in the runtime the client observed. */
   public interrupt(
-    runId: Protocol.RunId,
+    request: Protocol.InterruptRuntimeRequest,
     options?: MutationOptions,
-  ): Promise<Result<Protocol.RunOutput>> {
+  ): Promise<Result<Protocol.InterruptRuntimeResponseOutput>> {
     return this.#send("runtime.interrupt", {
-      params: { run_id: runId },
+      body: request,
       options,
     });
   }

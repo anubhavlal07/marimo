@@ -99,11 +99,11 @@ describe("NotebookClient", () => {
       "http://localhost/api/marimo/v1/notebooks/n1/?session_id=s1",
     );
     await notebook.delete();
-    await notebook.interrupt("r/1");
+    await notebook.interrupt({ runtime_id: "rt-1" });
     expect(fetch.mock.calls.map(([url]) => String(url))).toMatchInlineSnapshot(`
       [
         "http://localhost/api/marimo/v1/notebooks/n1?session_id=s1",
-        "http://localhost/api/marimo/v1/notebooks/n1/runtime/runs/r%2F1?session_id=s1",
+        "http://localhost/api/marimo/v1/notebooks/n1/runtime/interrupt?session_id=s1",
       ]
     `);
   });
@@ -119,14 +119,36 @@ describe("NotebookClient", () => {
     );
   });
 
-  it.each(["", ".", ".."])(
-    "rejects the run id %j before sending",
-    async (runId) => {
-      const { notebook, fetch } = connect(() => json(202, {}));
-      await expect(notebook.interrupt(runId)).rejects.toThrow("valid run_id");
-      expect(fetch).not.toHaveBeenCalled();
-    },
-  );
+  it("requires a nonempty runtime id before sending an interrupt", async () => {
+    const { notebook, fetch } = connect(() => json(202, {}));
+    await expect(notebook.interrupt({ runtime_id: "" })).rejects.toBeInstanceOf(
+      z.ZodError,
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("interrupts the observed runtime and returns an acknowledgement", async () => {
+    const body = readFixture(
+      "interrupt-runtime-request.json",
+    ) as Protocol.InterruptRuntimeRequest;
+    const receipt = readFixture("interrupt-runtime-response.json");
+    const { notebook, sent } = connect(() => json(202, receipt));
+
+    expect(
+      await notebook.interrupt(body, { idempotencyKey: "interrupt-1" }),
+    ).toEqual({
+      ok: true,
+      status: 202,
+      data: receipt,
+    });
+    const request = sent();
+    expect(request.method).toBe("POST");
+    expect(request.url).toBe(
+      "http://127.0.0.1:2718/api/marimo/v1/notebooks/n1/runtime/interrupt",
+    );
+    expect(request.headers.get("Idempotency-Key")).toBe("interrupt-1");
+    expect(await request.json()).toEqual(body);
+  });
 
   it("keeps its URL when a caller changes the copy it reads", async () => {
     const { notebook, fetch } = connect(
@@ -310,16 +332,18 @@ describe("NotebookClient.unstable_over", () => {
       status: 404,
     };
     const { notebook, send } = over(() => ({ status: 404, body: problem }));
-    expect(await notebook.interrupt("r1", { idempotencyKey: "k" })).toEqual({
+    expect(
+      await notebook.interrupt({ runtime_id: "rt-1" }, { idempotencyKey: "k" }),
+    ).toEqual({
       ok: false,
       status: 404,
       problem,
     });
     expect(send).toHaveBeenCalledWith({
       operation: "runtime.interrupt",
-      params: { notebook_id: "n1", run_id: "r1" },
+      params: { notebook_id: "n1" },
       headers: { "idempotency-key": "k" },
-      body: undefined,
+      body: { runtime_id: "rt-1" },
     });
   });
 
@@ -356,8 +380,10 @@ describe("NotebookClient.unstable_over", () => {
       unstable_NotebookCall<"runtime.interrupt">["params"]
     >().toEqualTypeOf<{
       readonly notebook_id: string;
-      readonly run_id: string;
     }>();
+    expectTypeOf<
+      unstable_NotebookCall<"runtime.interrupt">["body"]
+    >().toEqualTypeOf<Protocol.InterruptRuntimeRequestOutput>();
     expectTypeOf<unstable_NotebookCall<"notebook.save">["headers"]>().toExtend<{
       readonly "idempotency-key": string;
       readonly "if-match"?: string;

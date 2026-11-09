@@ -596,28 +596,45 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/Internal' }
         '501': { $ref: '#/components/responses/UnsupportedOperation' }
-  /notebooks/{notebook_id}/runtime/runs/{run_id}:
-    delete:
+  /notebooks/{notebook_id}/runtime/interrupt:
+    post:
       operationId: runtime.interrupt
-      summary: Interrupt a run
+      summary: Interrupt active work in the notebook's runtime
       description: |
-        Stops a run that is in progress. The notebook's stream then
-        carries its executions with the outcome `interrupted` and the
-        run with status `completed` and outcome `interrupted` once the
-        interruption has taken effect. Queued executions end `interrupted` and
-        the running one is interrupted. A run that has not started completes
-        `interrupted` without executing. Once the run is completed, the host
-        answers `conflict`. A host that lists `runtime.run` supports this route.
+        Requests interruption of active work in the identified runtime,
+        including callbacks and debugger commands that have no run or
+        execution record. The runtime stays alive. Interruption does not
+        roll back work already performed or cancel independently queued
+        runs. Pending inputs belonging to the interrupted work are cancelled.
+
+        The client sends the runtime id it observed. If the notebook has
+        no runtime, the host answers `no-runtime`. If that id is no longer
+        current, or the runtime is not `running`, the host answers `conflict`
+        without signalling another runtime. An idle running runtime accepts
+        the request as a no-op; it does not arm an interrupt for future work.
+
+        The response acknowledges the request, not that the work has
+        stopped. Runs and executions report their actual outcomes on the
+        stream once they settle; acceptance alone does not mark them
+        `interrupted`. Work without a run record need not acquire one for
+        this operation. Within the retry window, repeating the same request
+        returns the original acknowledgement without signalling again, even
+        if other work has started or the runtime has been replaced.
+        A host that lists `runtime.run` supports this route.
       parameters:
         - $ref: '#/components/parameters/NotebookId'
-        - $ref: '#/components/parameters/RunId'
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InterruptRuntimeRequest' }
       responses:
         '202':
-          description: The run is being interrupted.
+          description: Interruption was requested for the identified runtime.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Run' }
+              schema: { $ref: '#/components/schemas/InterruptRuntimeResponse' }
         '400': { $ref: '#/components/responses/InvalidRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -706,12 +723,6 @@ components:
       required: true
       description: The notebook's id.
       schema: { $ref: '#/components/schemas/NotebookId' }
-    RunId:
-      name: run_id
-      in: path
-      required: true
-      description: The run's id.
-      schema: { $ref: '#/components/schemas/RunId' }
     InputId:
       name: input_id
       in: path
@@ -2031,6 +2042,22 @@ components:
         value:
           type: string
           description: The text to deliver to the input exactly as submitted, including an empty string when the answer is empty.
+    InterruptRuntimeRequest:
+      type: object
+      description: Interrupt active work in the runtime the client observed.
+      required: [runtime_id]
+      properties:
+        runtime_id:
+          $ref: '#/components/schemas/RuntimeId'
+          description: The expected current runtime. A different current runtime is a conflict.
+    InterruptRuntimeResponse:
+      type: object
+      description: Acknowledges an interrupt request without claiming that active work has stopped.
+      required: [runtime_id]
+      properties:
+        runtime_id:
+          $ref: '#/components/schemas/RuntimeId'
+          description: The runtime the interrupt request was accepted for.
     StartRuntimeRequest:
       type: object
       properties:
