@@ -11,11 +11,15 @@
 export {
   cellExecutionInputsAtom,
   cellFreshnessAtom,
+  cellOutlineAtom,
+  cellOutputAtom,
   cellOutputInputsAtom,
+  cellOutputsAtom,
   clearCellOutputs,
   notebookIsRunningAtom,
   notebookQueuedOrRunningCountAtom,
   observeCellMessage,
+  releaseCellOutputAtoms,
   runtimeStatusAtom,
   submitCells,
   waitForRuntimeRunning,
@@ -32,6 +36,7 @@ export {
 export {
   type CellError,
   type CellOutput,
+  cellOutputsView,
   cellOutputView,
   type HostDiagnostic,
   scratchOutputView,

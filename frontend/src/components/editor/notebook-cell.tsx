@@ -47,6 +47,8 @@ import {
   type CellRunStatus,
   useCellExecution,
   useCellFreshness,
+  useCellOutline,
+  useCellOutput,
 } from "@/core/executions";
 import type { CellConfig } from "@/core/network/types";
 import { useResizeObserver } from "@/hooks/useResizeObserver";
@@ -324,7 +326,7 @@ const ReadonlyCellComponent = forwardRef(
   (props: { cellId: CellId }, ref: React.ForwardedRef<HTMLDivElement>) => {
     const { cellId } = props;
     const cellData = useCellData(cellId);
-    const cellRuntime = useCellRuntime(cellId);
+    const output = useCellOutput(cellId);
     const execution = useCellExecution(cellId);
     const freshness = useCellFreshness(cellId);
     const errored = execution.outcome === "error";
@@ -340,7 +342,7 @@ const ReadonlyCellComponent = forwardRef(
       errored,
       interrupted,
       stopped,
-      output: cellRuntime.output,
+      output,
       showErrorTracebacks: false,
     });
 
@@ -360,7 +362,7 @@ const ReadonlyCellComponent = forwardRef(
           forceExpand={true}
           className={CSSClasses.outputArea}
           cellId={cellId}
-          output={cellRuntime.output}
+          output={output}
           stale={outputIsStale(execution, freshness, true)}
           loading={outputIsLoading(execution.status)}
         />
@@ -389,6 +391,8 @@ const EditableCellComponent = ({
   const cellRef = useRef<HTMLDivElement>(null);
   const cellData = useCellData(cellId);
   const cellRuntime = useCellRuntime(cellId);
+  const output = useCellOutput(cellId);
+  const outline = useCellOutline(cellId);
   const execution = useCellExecution(cellId);
   const freshness = useCellFreshness(cellId);
   const errored = execution.outcome === "error";
@@ -430,7 +434,7 @@ const EditableCellComponent = ({
       errored,
       interrupted,
       stopped,
-      output: cellRuntime.output,
+      output,
       showErrorTracebacks: userConfig.runtime.show_tracebacks ?? false,
     });
 
@@ -476,8 +480,8 @@ const EditableCellComponent = ({
     editorView,
     cellActionDropdownRef,
   });
-  const canCollapse = canCollapseOutline(cellRuntime.outline);
-  const hasOutput = !isOutputEmpty(cellRuntime.output);
+  const canCollapse = canCollapseOutline(outline);
+  const hasOutput = !isOutputEmpty(output);
   // While presenting, pending edits do not dim the output as stale,
   // matching the read view.
   const isStaleCell = outputIsStale(execution, freshness, !isPresenting);
@@ -572,7 +576,7 @@ const EditableCellComponent = ({
         forceExpand={isMarkdownCodeHidden || isPresenting}
         className={CSSClasses.outputArea}
         cellId={cellId}
-        output={cellRuntime.output}
+        output={output}
         stale={isStaleCell}
         loading={outputIsLoading(execution.status)}
       />
@@ -1049,6 +1053,7 @@ const SetupCellComponent = ({
   const cellRef = useRef<HTMLDivElement>(null);
   const cellData = useCellData(cellId);
   const cellRuntime = useCellRuntime(cellId);
+  const output = useCellOutput(cellId);
   const execution = useCellExecution(cellId);
   const freshness = useCellFreshness(cellId);
   const errored = execution.outcome === "error";
@@ -1104,9 +1109,9 @@ const SetupCellComponent = ({
     editorView,
     cellActionDropdownRef,
   });
-  const hasOutput = !isOutputEmpty(cellRuntime.output);
+  const hasOutput = !isOutputEmpty(output);
   const hasConsoleOutput = cellRuntime.consoleOutputs.length > 0;
-  const isErrorOutput = isErrorMime(cellRuntime.output?.mimetype);
+  const isErrorOutput = isErrorMime(output?.mimetype);
 
   const className = clsx("marimo-cell", "hover-actions-parent z-10", {
     interactive: true,
@@ -1275,7 +1280,7 @@ const SetupCellComponent = ({
                 forceExpand={true}
                 className={CSSClasses.outputArea}
                 cellId={cellId}
-                output={cellRuntime.output}
+                output={output}
                 stale={false}
                 loading={loading}
               />
