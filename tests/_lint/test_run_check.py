@@ -159,6 +159,37 @@ def __():
         assert md_result.skipped is True
         assert txt_result.skipped is True  # Not a notebook
 
+    @pytest.mark.parametrize(
+        ("pattern", "expected"),
+        [
+            ("*.py", ["top.py"]),
+            ("sub/*.py", ["sub/nested.py"]),
+            ("**/*.py", ["sub/deep/deeper.py", "sub/nested.py", "top.py"]),
+            ("sub/**/*.py", ["sub/deep/deeper.py", "sub/nested.py"]),
+            ("**/deep/*.py", ["sub/deep/deeper.py"]),
+            ("t?p.py", ["top.py"]),
+            ("*.py/", []),
+        ],
+    )
+    def test_run_check_glob_respects_directory_boundaries(
+        self, tmp_path: Path, pattern: str, expected: list[str]
+    ):
+        """`*` stays within one directory; `**` matches zero or more."""
+        for name in ["top.py", "sub/nested.py", "sub/deep/deeper.py"]:
+            path = tmp_path / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# empty notebook")
+
+        result = run_check((f"{tmp_path}/{pattern}",))
+
+        assert (
+            sorted(
+                Path(f.file).relative_to(tmp_path).as_posix()
+                for f in result.files
+            )
+            == expected
+        )
+
 
 class TestMarkdownRecognition:
     """Markdown is only linted when recognized as a marimo notebook."""

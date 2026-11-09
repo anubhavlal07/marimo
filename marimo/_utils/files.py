@@ -55,6 +55,32 @@ def _get_root(pattern: str) -> str:
     return root
 
 
+def _match_parts(path: tuple[str, ...], pattern: tuple[str, ...]) -> bool:
+    """Match path components one at a time, like `pathlib` globbing.
+
+    `*` and `?` never cross a directory separator, and `**` matches zero or
+    more whole directories.
+    """
+    if not pattern:
+        return not path
+    if pattern[0] == "**":
+        return any(
+            _match_parts(path[i:], pattern[1:]) for i in range(len(path) + 1)
+        )
+    return (
+        bool(path)
+        and fnmatch.fnmatch(path[0], pattern[0])
+        and _match_parts(path[1:], pattern[1:])
+    )
+
+
+def _matches(path: Path, pattern: str) -> bool:
+    # `Path` drops a trailing separator, which restricts a glob to directories.
+    if pattern.endswith(("/", os.sep)):
+        return False
+    return _match_parts(path.parts, Path(pattern).parts)
+
+
 def expand_file_patterns(file_patterns: tuple[str, ...]) -> list[Path]:
     """Expand file patterns to actual file paths.
 
@@ -80,9 +106,7 @@ def expand_file_patterns(file_patterns: tuple[str, ...]) -> list[Path]:
                 if os.path.isdir(root):
                     all_files = get_files(root)
                     matched_files = [
-                        path
-                        for path in all_files
-                        if fnmatch.fnmatch(str(path), pattern)
+                        path for path in all_files if _matches(path, pattern)
                     ]
                     files_to_check.extend(matched_files)
             else:
@@ -127,7 +151,7 @@ async def async_expand_file_patterns(
                 if await async_path.isdir(root):
                     async for file_path in async_get_files(root):
                         if (
-                            fnmatch.fnmatch(str(file_path), pattern)
+                            _matches(file_path, pattern)
                             and file_path not in seen
                         ):
                             seen.add(file_path)
