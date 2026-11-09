@@ -161,12 +161,14 @@ class NotebookOperations {
   }
 
   /** Cancel one run without affecting other runs. */
-  public cancel(
-    request: { readonly runId: Protocol.RunId },
-    options?: MutationOptions,
-  ): Promise<Result<Protocol.RunOutput>> {
+  public cancel({
+    runId,
+    ...options
+  }: { readonly runId: Protocol.RunId } & MutationOptions): Promise<
+    Result<Protocol.RunOutput>
+  > {
     return this.#send("runtime.cancel", {
-      params: { run_id: request.runId },
+      params: { run_id: runId },
       options,
     });
   }

@@ -160,7 +160,7 @@ describe("NotebookClient", () => {
     };
     const { notebook, sent } = connect(() => json(202, run));
     expect(
-      await notebook.cancel({ runId: run.id }, { idempotencyKey: "cancel-1" }),
+      await notebook.cancel({ runId: run.id, idempotencyKey: "cancel-1" }),
     ).toEqual({ ok: true, status: 202, data: run });
     const request = sent();
     expect(request.method).toBe("DELETE");
@@ -354,13 +354,13 @@ describe("NotebookClient.unstable_over", () => {
       status: 404,
     };
     const { notebook, send } = over(() => ({ status: 404, body: problem }));
-    expect(
-      await notebook.cancel({ runId: "r1" }, { idempotencyKey: "k" }),
-    ).toEqual({
-      ok: false,
-      status: 404,
-      problem,
-    });
+    expect(await notebook.cancel({ runId: "r1", idempotencyKey: "k" })).toEqual(
+      {
+        ok: false,
+        status: 404,
+        problem,
+      },
+    );
     expect(send).toHaveBeenCalledWith({
       operation: "runtime.cancel",
       params: { notebook_id: "n1", run_id: "r1" },
